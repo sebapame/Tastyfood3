@@ -1,0 +1,27 @@
+
+<!DOCTYPE html>
+<html>
+<head><title>Editar Registro</title></head>
+<body>
+    <h2>Editar Registro ID {{ registro[0] }}</h2>
+    <form method="POST">
+        <label>Patente:</label>
+        <input type="text" name="patente" value="{{ registro[1] }}" required><br><br>
+
+        <label>Hora Entrada:</label>
+        <input type="text" name="hora_entrada" value="{{ registro[2] }}"><br><br>
+
+        <label>Hora Salida:</label>
+        <input type="text" name="hora_salida" value="{{ registro[3] or '' }}"><br><br>
+
+        <label>Monto:</label>
+        <input type="number" name="monto" value="{{ registro[4] or '' }}"><br><br>
+
+        <label>Medio de Pago:</label>
+        <input type="text" name="medio_pago" value="{{ registro[5] or '' }}"><br><br>
+
+        <input type="submit" value="Guardar Cambios">
+        <a href="/">Cancelar</a>
+    </form>
+</body>
+</html>

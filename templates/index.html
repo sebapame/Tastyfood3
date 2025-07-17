@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Estacionamiento Profesional</title>
+    <style>
+        .logo-container { display: flex; align-items: center; gap: 20px; margin: 20px; }
+        .logo-container img { height: 100px; }
+    </style>
+</head>
+<body>
+    <div class="logo-container">
+        <img src="/static/logo.jpg" alt="Logo">
+        <h1>Estacionamiento Profesional</h1>
+    </div>
+
+    {% if mensaje %}
+        <p style="color: red;">{{ mensaje }}</p>
+    {% endif %}
+
+    <form method="POST">
+        <label>Patente:</label>
+        <input type="text" name="patente" required maxlength="10"><br><br>
+
+        {% if mostrar_monto %}
+            <p><strong>Duración:</strong> {{ minutos }} minutos</p>
+            <p><strong>Monto a pagar:</strong> ${{ monto }}</p>
+            <label>Medio de Pago:</label>
+            <select name="medio_pago" required>
+                <option value="">--Seleccione--</option>
+                <option value="Efectivo">Efectivo</option>
+                <option value="Débito">Débito</option>
+                <option value="Crédito">Crédito</option>
+                <option value="Prepago">Prepago</option>
+            </select><br><br>
+        {% else %}
+            <label>Medio de Pago (solo si es salida):</label>
+            <select name="medio_pago">
+                <option value="">--Seleccione--</option>
+                <option value="Efectivo">Efectivo</option>
+                <option value="Débito">Débito</option>
+                <option value="Crédito">Crédito</option>
+                <option value="Prepago">Prepago</option>
+            </select><br><br>
+        {% endif %}
+
+        <input type="submit" value="Registrar Entrada / Salida">
+    </form>
+
+    <hr>
+    <h2>Filtrar por Fecha</h2>
+    <form method="get">
+        <label>Fecha:</label>
+        <input type="date" name="fecha" value="{{ fecha }}">
+        <input type="submit" value="Filtrar">
+        <a href="/exportar?fecha={{ fecha }}">📥 Exportar Excel</a>
+    </form>
+
+    <h2>Resumen de Pagos del {{ fecha }}</h2>
+    <ul>
+        <li>Efectivo: ${{ "{:,}".format(totales.get('Efectivo', 0)) }}</li>
+        <li>Débito: ${{ "{:,}".format(totales.get('Débito', 0)) }}</li>
+        <li>Crédito: ${{ "{:,}".format(totales.get('Crédito', 0)) }}</li>
+        <li>Prepago: ${{ "{:,}".format(totales.get('Prepago', 0)) }}</li>
+        <li><strong>Total General:</strong> ${{ "{:,}".format(total_general) }}</li>
+    </ul>
+
+    <h2>Registros del {{ fecha }}</h2>
+    <table border="1">
+        <tr>
+            <th>ID</th>
+            <th>Patente</th>
+            <th>Ingreso</th>
+            <th>Salida</th>
+            <th>Monto</th>
+            <th>Medio de Pago</th>
+            <th>Acciones</th>
+        </tr>
+        {% for r in registros %}
+        <tr>
+            <td>{{ r[0] }}</td>
+            <td>{{ r[1] }}</td>
+            <td>{{ r[2] }}</td>
+            <td>{{ r[3] if r[3] else '-' }}</td>
+            <td>{{ "$" + "{:,}".format(r[4]) if r[4] else '-' }}</td>
+            <td>{{ r[5] if r[5] else '-' }}</td>
+            <td>
+                <a href="/editar/{{ r[0] }}">✏️ Editar</a> |
+                <a href="/eliminar/{{ r[0] }}?fecha={{ fecha }}" onclick="return confirm('¿Eliminar este registro?');">🗑️ Eliminar</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
