@@ -7,71 +7,95 @@
         .highlight {
             background-color: yellow;
         }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
+            margin-top: 10px;
         }
         th, td {
+            border: 1px solid #aaa;
             padding: 8px;
-            border: 1px solid #ccc;
             text-align: center;
         }
         th {
-            background-color: #f2f2f2;
+            background-color: #ddd;
         }
-        form {
-            margin-bottom: 20px;
+        .form-group {
+            margin-bottom: 10px;
         }
-        input[type="text"] {
-            padding: 6px;
-            margin-right: 10px;
-        }
-        input[type="submit"] {
-            padding: 6px 12px;
+        .resumen {
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <h1>Estacionamiento</h1>
+    <h1>Control de Estacionamiento</h1>
 
-    <form action="/agregar" method="post">
-        <input type="text" name="patente" placeholder="Patente" required>
-        <input type="submit" value="Agregar Vehículo">
+    <form method="GET">
+        <label for="fecha">Seleccionar fecha: </label>
+        <input type="date" name="fecha" value="{{ fecha }}">
+        <input type="submit" value="Filtrar">
     </form>
+
+    <form method="POST">
+        <div class="form-group">
+            <input type="text" name="patente" placeholder="Patente" required>
+            {% if mostrar_monto %}
+                <select name="medio_pago" required>
+                    <option value="">Seleccione medio de pago</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Débito">Débito</option>
+                    <option value="Crédito">Crédito</option>
+                    <option value="Transferencia">Transferencia</option>
+                </select>
+            {% endif %}
+            <input type="submit" value="Procesar">
+        </div>
+    </form>
+
+    {% if mostrar_monto %}
+        <p><strong>Minutos:</strong> {{ minutos }} | <strong>Monto a pagar:</strong> ${{ monto }}</p>
+    {% endif %}
 
     <table>
         <thead>
             <tr>
                 <th>ID</th>
                 <th>Patente</th>
-                <th>Ingreso</th>
+                <th>Entrada</th>
                 <th>Salida</th>
-                <th>Tiempo</th>
+                <th>Minutos</th>
                 <th>Monto</th>
-                <th>Acciones</th>
+                <th>Pago</th>
             </tr>
         </thead>
         <tbody>
-            {% for vehiculo in vehiculos %}
-                <tr {% if vehiculo.id == ultimo_id %}class="highlight"{% endif %}>
-                    <td>{{ vehiculo.id }}</td>
-                    <td>{{ vehiculo.patente }}</td>
-                    <td>{{ vehiculo.ingreso }}</td>
-                    <td>{{ vehiculo.salida or '' }}</td>
-                    <td>{{ vehiculo.tiempo or '' }}</td>
-                    <td>{{ vehiculo.monto or '' }}</td>
-                    <td>
-                        {% if not vehiculo.salida %}
-                            <form action="/salida/{{ vehiculo.id }}" method="post" style="display:inline;">
-                                <input type="submit" value="Registrar salida">
-                            </form>
-                        {% else %}
-                            <a href="/editar/{{ vehiculo.id }}">Editar</a>
-                        {% endif %}
-                    </td>
+            {% for r in registros %}
+                <tr {% if r.id == ultima_salida_id %}class="highlight"{% endif %}>
+                    <td>{{ r.id }}</td>
+                    <td>{{ r.patente }}</td>
+                    <td>{{ r.hora_entrada }}</td>
+                    <td>{{ r.hora_salida or '' }}</td>
+                    <td>{{ r.minutos or '' }}</td>
+                    <td>{{ r.monto or '' }}</td>
+                    <td>{{ r.medio_pago or '' }}</td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
+
+    <div class="resumen">
+        <h3>Resumen del día ({{ fecha }})</h3>
+        <ul>
+            {% for metodo, total in totales.items() %}
+                <li>{{ metodo }}: ${{ total }}</li>
+            {% endfor %}
+        </ul>
+        <p><strong>Total general:</strong> ${{ total_general }}</p>
+    </div>
 </body>
 </html>
