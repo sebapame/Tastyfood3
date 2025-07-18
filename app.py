@@ -1,64 +1,107 @@
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, url_for
 from datetime import datetime
 import pandas as pd
 from sqlalchemy import create_engine, text
 import os
-import math
 
 app = Flask(__name__)
 
-# Obtener URL de conexión desde variable de entorno
-DATABASE_URL = os.environ.get("DATABASE_URL")
+# Obtener y corregir URL de base de datos
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
-
+# Crear conexión SQLAlchemy
 engine = create_engine(DATABASE_URL)
+
+# Crear tabla si no existe
+with engine.connect() as conn:
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS ingresos (
+            id SERIAL PRIMARY KEY,
+            patente TEXT NOT NULL,
+            hora_entrada TIMESTAMP NOT NULL,
+            hora_salida TIMESTAMP,
+            minutos INTEGER,
+            monto INTEGER,
+            medio_pago TEXT
+        );
+    """))
 
 @app.route("/", methods=["GET", "POST"])
 def index():
+    mensaje = ""
+    mostrar_monto = False
+    minutos = 0
+    monto = 0
+    filtro_fecha = request.args.get("fecha", datetime.now().strftime("%Y-%m-%d"))
+    now = datetime.now()
+
     if request.method == "POST":
-        patente = request.form["patente"].upper().strip()
-        tipo = request.form["tipo"]
-        transferencia = "Prepago"
-        fecha_ingreso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        patente = request.form["patente"].upper()
+        medio_pago = request.form.get("medio_pago", "")
 
-        with engine.connect() as conn:
-            conn.execute(
-                text("INSERT INTO ingresos (patente, tipo, transferencia, fecha_ingreso) VALUES (:patente, :tipo, :transferencia, :fecha_ingreso)"),
-                {"patente": patente, "tipo": tipo, "transferencia": transferencia, "fecha_ingreso": fecha_ingreso}
-            )
-        return redirect("/")
+        with engine.begin() as conn:
+            result = conn.execute(text("SELECT * FROM ingresos WHERE patente = :patente AND hora_salida IS NULL"), {"patente": patente})
+            registro = result.fetchone()
 
-    with engine.connect() as conn:
+            if registro:
+                hora_entrada = registro["hora_entrada"]
+                hora_salida = now
+                minutos_totales = int((hora_salida - hora_entrada).total_seconds() / 60)
+                minutos_extra = max(0, minutos_totales - 15)
+                monto = 500 + minutos_extra * 24
+
+                # Redondear a la decena más cercana
+                unidad = monto % 10
+                if unidad < 5:
+                    monto -= unidad
+                else:
+                    monto += (10 - unidad)
+
+                if medio_pago:
+                    conn.execute(text("""
+                        UPDATE ingresos
+                        SET hora_salida = :salida, minutos = :min, monto = :monto, medio_pago = :pago
+                        WHERE id = :id
+                    """), {
+                        "salida": hora_salida,
+                        "min": minutos_totales,
+                        "monto": monto,
+                        "pago": medio_pago,
+                        "id": registro["id"]
+                    })
+                    return redirect(url_for("index", fecha=filtro_fecha))
+                else:
+                    mostrar_monto = True
+                    minutos = minutos_totales
+            else:
+                conn.execute(text("INSERT INTO ingresos (patente, hora_entrada) VALUES (:patente, :entrada)"), {
+                    "patente": patente,
+                    "entrada": now
+                })
+                return redirect(url_for("index", fecha=filtro_fecha))
+
+    # Mostrar registros del día filtrado
+    with engine.begin() as conn:
         df = pd.read_sql("SELECT * FROM ingresos ORDER BY id DESC", conn)
+        df["fecha"] = df["hora_entrada"].dt.strftime("%Y-%m-%d")
+        registros = df[df["fecha"] == filtro_fecha].to_dict(orient="records")
 
-    # Aplicar estilo para resaltar última fila con salida
-    df["resaltar"] = ""
-    ultima_con_salida = df[df["fecha_salida"].notnull()].head(1)
-    if not ultima_con_salida.empty:
-        df.loc[ultima_con_salida.index[0], "resaltar"] = "background-color: yellow; font-weight: bold;"
+        # Última salida con hora_salida NO NULL
+        salida = df[(df["fecha"] == filtro_fecha) & (df["hora_salida"].notnull())]
+        ultima_salida_id = salida["id"].max() if not salida.empty else None
 
-    return render_template("index.html", tabla=df.to_dict(orient="records"))
+        pagos = df[(df["fecha"] == filtro_fecha) & (df["monto"].notnull())]
+        totales = pagos.groupby("medio_pago")["monto"].sum().to_dict()
+        total_general = pagos["monto"].sum()
 
-@app.route("/salida/<int:registro_id>")
-def salida(registro_id):
-    fecha_salida = datetime.now()
-    with engine.connect() as conn:
-        result = conn.execute(text("SELECT fecha_ingreso FROM ingresos WHERE id = :id"), {"id": registro_id}).fetchone()
-        if result:
-            fecha_ingreso = datetime.strptime(result[0], "%Y-%m-%d %H:%M:%S")
-            tiempo = (fecha_salida - fecha_ingreso).total_seconds() / 60
-            tiempo_extra = max(0, tiempo - 15)
-            monto = 500 + (tiempo_extra * 24)
-            monto = int(round(monto / 10.0) * 10)  # Redondear al múltiplo de 10 más cercano
-
-            conn.execute(
-                text("UPDATE ingresos SET fecha_salida = :salida, monto = :monto WHERE id = :id"),
-                {"salida": fecha_salida.strftime("%Y-%m-%d %H:%M:%S"), "monto": monto, "id": registro_id}
-            )
-    return redirect("/")
+    return render_template("index.html", registros=registros, mensaje=mensaje,
+                           mostrar_monto=mostrar_monto, minutos=minutos, monto=monto,
+                           fecha=filtro_fecha, totales=totales, total_general=total_general,
+                           ultima_salida_id=ultima_salida_id)
 
 if __name__ == "__main__":
     app.run(debug=True)
+
 
