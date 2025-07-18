@@ -1,122 +1,77 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>Estacionamiento TastyFood</title>
+    <title>Estacionamiento</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
+        .highlight {
+            background-color: yellow;
         }
-
         table {
-            border-collapse: collapse;
             width: 100%;
-            margin-top: 15px;
+            border-collapse: collapse;
         }
-
         th, td {
-            border: 1px solid #ddd;
             padding: 8px;
+            border: 1px solid #ccc;
             text-align: center;
         }
-
         th {
-            background-color: #333;
-            color: white;
+            background-color: #f2f2f2;
         }
-
-        .ultima-salida {
-            background-color: #fff7b2; /* Amarillo suave */
-            font-weight: bold;
-        }
-
-        .totales {
-            margin-top: 20px;
-        }
-
-        .formulario {
+        form {
             margin-bottom: 20px;
         }
-
-        .monto-box {
-            background-color: #e6f7ff;
-            padding: 10px;
-            margin-bottom: 15px;
-            border: 1px solid #91d5ff;
+        input[type="text"] {
+            padding: 6px;
+            margin-right: 10px;
         }
-
-        .boton {
+        input[type="submit"] {
             padding: 6px 12px;
-            font-size: 14px;
-        }
-
-        h1 {
-            color: #222;
         }
     </style>
 </head>
 <body>
-    <h1>Estacionamiento TastyFood</h1>
+    <h1>Estacionamiento</h1>
 
-    <form method="get">
-        <label for="fecha">Filtrar por fecha:</label>
-        <input type="date" id="fecha" name="fecha" value="{{ fecha }}">
-        <button type="submit" class="boton">Filtrar</button>
+    <form action="/agregar" method="post">
+        <input type="text" name="patente" placeholder="Patente" required>
+        <input type="submit" value="Agregar Vehículo">
     </form>
-
-    <form method="post" class="formulario">
-        <label for="patente">Patente:</label>
-        <input type="text" id="patente" name="patente" required>
-
-        <label for="medio_pago">Medio de pago:</label>
-        <select name="medio_pago" id="medio_pago">
-            <option value="">-- Seleccione --</option>
-            <option value="Efectivo">Efectivo</option>
-            <option value="Prepago">Prepago</option>
-        </select>
-
-        <button type="submit" class="boton">Registrar</button>
-    </form>
-
-    {% if mostrar_monto %}
-    <div class="monto-box">
-        <strong>Minutos:</strong> {{ minutos }}<br>
-        <strong>Monto:</strong> ${{ monto }}
-    </div>
-    {% endif %}
 
     <table>
         <thead>
             <tr>
+                <th>ID</th>
                 <th>Patente</th>
-                <th>Hora Entrada</th>
-                <th>Hora Salida</th>
+                <th>Ingreso</th>
+                <th>Salida</th>
+                <th>Tiempo</th>
                 <th>Monto</th>
-                <th>Medio de Pago</th>
+                <th>Acciones</th>
             </tr>
         </thead>
         <tbody>
-            {% for registro in registros %}
-            <tr {% if registro[0] == ultima_salida_id %}class="ultima-salida"{% endif %}>
-                <td>{{ registro[1] }}</td>
-                <td>{{ registro[2] }}</td>
-                <td>{{ registro[3] or '' }}</td>
-                <td>{{ registro[4] or '' }}</td>
-                <td>{{ registro[5] or '' }}</td>
-            </tr>
+            {% for vehiculo in vehiculos %}
+                <tr {% if vehiculo.id == ultimo_id %}class="highlight"{% endif %}>
+                    <td>{{ vehiculo.id }}</td>
+                    <td>{{ vehiculo.patente }}</td>
+                    <td>{{ vehiculo.ingreso }}</td>
+                    <td>{{ vehiculo.salida or '' }}</td>
+                    <td>{{ vehiculo.tiempo or '' }}</td>
+                    <td>{{ vehiculo.monto or '' }}</td>
+                    <td>
+                        {% if not vehiculo.salida %}
+                            <form action="/salida/{{ vehiculo.id }}" method="post" style="display:inline;">
+                                <input type="submit" value="Registrar salida">
+                            </form>
+                        {% else %}
+                            <a href="/editar/{{ vehiculo.id }}">Editar</a>
+                        {% endif %}
+                    </td>
+                </tr>
             {% endfor %}
         </tbody>
     </table>
-
-    <div class="totales">
-        <h3>Totales por medio de pago:</h3>
-        <ul>
-            {% for medio, total in totales.items() %}
-                <li>{{ medio }}: ${{ total }}</li>
-            {% endfor %}
-        </ul>
-        <strong>Total General:</strong> ${{ total_general }}
-    </div>
 </body>
 </html>
